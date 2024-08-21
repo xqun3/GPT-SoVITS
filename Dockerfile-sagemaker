@@ -8,10 +8,10 @@ RUN mkdir -p /opt/program
 RUN chmod 777 /opt/program
 
 # install sagemaker relevant libs
-RUN pip install --no-cache-dir  sagemaker
-RUN pip install sagemaker-ssh-helper
-RUN pip install boto3
-RUN pip3 install pydantic
+RUN pip install --no-cache-dir  sagemaker && \
+    pip install sagemaker-ssh-helper && \
+    pip install boto3 && \
+    pip install pydantic;
 #RUN curl -L https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz | tar -xz && mv s5cmd /opt/program/
 
 ENV PYTHONUNBUFFERED=TRUE
