@@ -145,10 +145,12 @@ import argparse
 import os,re
 import sys
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-sys.path.append("%s/GPT_SoVITS" % (now_dir))
-
+# now_dir = os.getcwd()
+# sys.path.append(now_dir)
+# sys.path.append("%s/GPT_SoVITS" % (now_dir))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sub_gpt_sovits_folder = os.path.join(current_dir, 'GPT_SoVITS')
+sys.path.append(sub_gpt_sovits_folder)
 import signal
 import LangSegment
 from time import time as ttime
@@ -171,6 +173,9 @@ from tools.my_utils import load_audio
 import config as global_config
 import logging
 import subprocess
+from inference import *
+import boto3
+import io
 
 
 class DefaultRefer:
@@ -556,7 +561,28 @@ def only_punc(text):
 
 
 splits = {"，", "。", "？", "！", ",", ".", "?", "!", "~", ":", "：", "—", "…", }
+
+def download_from_s3(source_s3_url,local_file_path):
+    s3 = boto3.client('s3')
+    bucket_name, s3_file_path = get_bucket_and_key(source_s3_url)
+    # 下载文件
+    try:
+        s3.download_file(bucket_name, s3_file_path, local_file_path)
+        print(f'文件 {s3_file_path} 已下载到 {local_file_path}')
+    except Exception as e:
+        print(f'下载失败: {e}')
+
+def pre_download(ref_wav_path:str)-> None:
+    if "s3" in ref_wav_path:
+        file_name = os.path.basename(ref_wav_path)
+        download_file = "/tmp/"+file_name
+        download_from_s3(ref_wav_path,download_file)
+        return download_file
+    else:
+        return ref_wav_path
+
 def get_tts_wav(ref_wav_path, prompt_text, prompt_language, text, text_language, top_k= 15, top_p = 0.6, temperature = 0.6, speed = 1, inp_refs = None, spk = "default"):
+    ref_wav_path = pre_download(ref_wav_path)
     infer_sovits = speaker_list[spk].sovits
     vq_model = infer_sovits.vq_model
     hps = infer_sovits.hps
@@ -707,7 +733,8 @@ def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cu
     else:
         text = cut_text(text,cut_punc)
 
-    return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refs), media_type="audio/"+media_type)
+    # return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refs), media_type="audio/"+media_type)
+    return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refsoutput_s3uri), media_type="application/json")
 
 
 
@@ -715,6 +742,9 @@ def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cu
 # --------------------------------
 # 初始化部分
 # --------------------------------
+now_dir = os.getcwd()
+sys.path.append(now_dir)
+sys.path.append("%s/GPT_SoVITS" % (now_dir))
 dict_language = {
     "中文": "all_zh",
     "粤语": "all_yue",
@@ -762,7 +792,7 @@ parser.add_argument("-fp", "--full_precision", action="store_true", default=Fals
 parser.add_argument("-hp", "--half_precision", action="store_true", default=False, help="覆盖config.is_half为True, 使用半精度")
 # bool值的用法为 `python ./api.py -fp ...`
 # 此时 full_precision==True, half_precision==False
-parser.add_argument("-sm", "--stream_mode", type=str, default="close", help="流式返回模式, close / normal / keepalive")
+parser.add_argument("-sm", "--stream_mode", type=str, default="normal", help="流式返回模式, close / normal / keepalive")
 parser.add_argument("-mt", "--media_type", type=str, default="wav", help="音频编码格式, wav / ogg / aac")
 parser.add_argument("-st", "--sub_type", type=str, default="int16", help="音频数据类型, int16 / int32")
 parser.add_argument("-cp", "--cut_punc", type=str, default="", help="文本切分符号设定, 符号范围,.;?!、，。？！；：…")
@@ -823,7 +853,10 @@ if args.media_type.lower() in ["aac","ogg"]:
 elif stream_mode == "close":
     media_type = "wav"
 else:
-    media_type = "ogg"
+    # media_type = "ogg"
+    #change stream mode also use wav
+    #as sagemaker return packed audio file on s3 path
+    media_type = "wav"
 logger.info(f"编码格式: {media_type}")
 
 # 音频数据类型
@@ -854,12 +887,30 @@ change_gpt_sovits_weights(gpt_path = gpt_path, sovits_path = sovits_path)
 # --------------------------------
 app = FastAPI()
 
+@app.get("/ping")
+async def ping():
+    """
+    ping /ping func
+    """
+    return {"message": "ok"}
+
+@app.post("/invocations")
+async def invocations(request: Request):
+    json_post_raw = await request.json()
+    print(f"invocations {json_post_raw=}")
+    opt=parse_obj_as(InferenceOpt,json_post_raw)
+    print(f"invocations {opt=}")
+    return handle(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text,  opt.text_language,opt.cut_punc, opt.output_s3uri)
+    #return get_tts_wav(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text, opt.text_language, opt.output_s3uri)
 @app.post("/set_model")
 async def set_model(request: Request):
     json_post_raw = await request.json()
+    gpt_path = json_post_raw.get("gpt_model_path") 
+    sovits_path = json_post_raw.get("sovits_model_path")
+    logger.info("gptpath"+gpt_path+";vitspath"+sovits_path)
     return change_gpt_sovits_weights(
-        gpt_path = json_post_raw.get("gpt_model_path"), 
-        sovits_path = json_post_raw.get("sovits_model_path")
+        gpt_path = gpt_path,
+        sovits_path = sovits_path 
     )
 
 
@@ -933,7 +984,8 @@ async def tts_endpoint(
         speed: float = 1.0,
         inp_refs: list = Query(default=[])
 ):
-    return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs)
+    # return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs)
+    return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refsoutput_s3uri)
 
 
 if __name__ == "__main__":
