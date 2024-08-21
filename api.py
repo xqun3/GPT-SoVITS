@@ -145,12 +145,12 @@ import argparse
 import os,re
 import sys
 
-# now_dir = os.getcwd()
-# sys.path.append(now_dir)
-# sys.path.append("%s/GPT_SoVITS" % (now_dir))
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sub_gpt_sovits_folder = os.path.join(current_dir, 'GPT_SoVITS')
-sys.path.append(sub_gpt_sovits_folder)
+now_dir = os.getcwd()
+sys.path.append(now_dir)
+sys.path.append("%s/GPT_SoVITS" % (now_dir))
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# sub_gpt_sovits_folder = os.path.join(current_dir, 'GPT_SoVITS')
+# sys.path.append(sub_gpt_sovits_folder)
 import signal
 import LangSegment
 from time import time as ttime
@@ -504,6 +504,13 @@ def pack_wav(audio_bytes, rate):
         sf.write(wav_bytes, data, rate, format='WAV')
     return wav_bytes
 
+def pack_mp3(audio_bytes, rate):
+    #data = np.frombuffer(audio_bytes.getvalue(),dtype=np.int16)
+    data = np.frombuffer(audio_bytes,dtype=np.int16)
+    mp3_bytes = BytesIO()
+    sf.write(mp3_bytes, data, rate, format='mp3')
+
+    return mp3_bytes
 
 def pack_aac(audio_bytes, data, rate):
     if is_int32:
@@ -581,7 +588,7 @@ def pre_download(ref_wav_path:str)-> None:
     else:
         return ref_wav_path
 
-def get_tts_wav(ref_wav_path, prompt_text, prompt_language, text, text_language, top_k= 15, top_p = 0.6, temperature = 0.6, speed = 1, inp_refs = None, spk = "default"):
+def get_tts_wav(ref_wav_path, prompt_text, prompt_language, text, text_language, top_k= 15, top_p = 0.6, temperature = 0.6, speed = 1, inp_refs = None, output_s3uri=None,spk = "default"):
     ref_wav_path = pre_download(ref_wav_path)
     infer_sovits = speaker_list[spk].sovits
     vq_model = infer_sovits.vq_model
@@ -677,7 +684,14 @@ def get_tts_wav(ref_wav_path, prompt_text, prompt_language, text, text_language,
     # logger.info("%.3f\t%.3f\t%.3f\t%.3f" % (t1 - t0, t2 - t1, t3 - t2, t4 - t3))
         if stream_mode == "normal":
             audio_bytes, audio_chunk = read_clean_buffer(audio_bytes)
-            yield audio_chunk
+            chunked_audio_bytes = pack_mp3(chunked_audio_bytes,hps.data.sampling_rate)
+            #print("here1===")
+            #print(len(chunked_audio_bytes.getvalue()))
+            result = write_wav_to_s3(chunked_audio_bytes,output_s3uri)
+            yield json.dumps(result)
+
+            # yield audio_chunk
+
     
     if not stream_mode == "normal": 
         if media_type == "wav":
@@ -714,7 +728,7 @@ def handle_change(path, text, language):
     return JSONResponse({"code": 0, "message": "Success"}, status_code=200)
 
 
-def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs):
+def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs, output_s3uri):
     if (
             refer_wav_path == "" or refer_wav_path is None
             or prompt_text == "" or prompt_text is None
@@ -734,7 +748,7 @@ def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cu
         text = cut_text(text,cut_punc)
 
     # return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refs), media_type="audio/"+media_type)
-    return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refsoutput_s3uri), media_type="application/json")
+    return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refs, output_s3uri), media_type="application/json")
 
 
 
@@ -966,7 +980,8 @@ async def tts_endpoint(request: Request):
         json_post_raw.get("top_p", 1.0),
         json_post_raw.get("temperature", 1.0),
         json_post_raw.get("speed", 1.0),
-        json_post_raw.get("inp_refs", [])
+        json_post_raw.get("inp_refs", []),
+        None
     )
 
 
@@ -982,10 +997,11 @@ async def tts_endpoint(
         top_p: float = 1.0,
         temperature: float = 1.0,
         speed: float = 1.0,
-        inp_refs: list = Query(default=[])
+        inp_refs: list = Query(default=[]),
+        output_s3uri :str = None
 ):
     # return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs)
-    return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refsoutput_s3uri)
+    return handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs, output_s3uri, None)
 
 
 if __name__ == "__main__":
