@@ -30,6 +30,7 @@ rotary_embedding_torch
 pyjyutping 
 g2pk2
 ko_pron
+torch==2.0.1+cu118
 opencc; sys_platform != 'linux'
 opencc==1.1.1; sys_platform == 'linux'
 python_mecab_ko; sys_platform != 'win32'
