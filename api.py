@@ -684,10 +684,10 @@ def get_tts_wav(ref_wav_path, prompt_text, prompt_language, text, text_language,
     # logger.info("%.3f\t%.3f\t%.3f\t%.3f" % (t1 - t0, t2 - t1, t3 - t2, t4 - t3))
         if stream_mode == "normal":
             audio_bytes, audio_chunk = read_clean_buffer(audio_bytes)
-            chunked_audio_bytes = pack_mp3(chunked_audio_bytes,hps.data.sampling_rate)
+            chunked_audio_bytes = pack_mp3(audio_chunk,hps.data.sampling_rate)
             #print("here1===")
             #print(len(chunked_audio_bytes.getvalue()))
-            result = write_wav_to_s3(chunked_audio_bytes,output_s3uri)
+            result = write_wav_to_s3(audio_chunk, output_s3uri)
             yield json.dumps(result)
 
             # yield audio_chunk
