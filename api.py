@@ -914,7 +914,7 @@ async def invocations(request: Request):
     print(f"invocations {json_post_raw=}")
     opt=parse_obj_as(InferenceOpt,json_post_raw)
     print(f"invocations {opt=}")
-    return handle(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text,  opt.text_language,opt.cut_punc, opt.output_s3uri)
+    return handle(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text,  opt.text_language,opt.cut_punc, opt.top_k, opt.top_p, opt.temperature, opt.speed, opt.inp_refs, opt.output_s3uri)
     #return get_tts_wav(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text, opt.text_language, opt.output_s3uri)
 @app.post("/set_model")
 async def set_model(request: Request):
