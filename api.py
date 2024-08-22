@@ -145,12 +145,12 @@ import argparse
 import os,re
 import sys
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-sys.path.append("%s/GPT_SoVITS" % (now_dir))
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-# sub_gpt_sovits_folder = os.path.join(current_dir, 'GPT_SoVITS')
-# sys.path.append(sub_gpt_sovits_folder)
+# now_dir = os.getcwd()
+# sys.path.append(now_dir)
+# sys.path.append("%s/GPT_SoVITS" % (now_dir))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sub_gpt_sovits_folder = os.path.join(current_dir, 'GPT_SoVITS')
+sys.path.append(sub_gpt_sovits_folder)
 import signal
 import LangSegment
 from time import time as ttime
