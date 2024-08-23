@@ -43,7 +43,8 @@ RUN if [ "$IMAGE_TYPE" != "elite" ]; then \
         chmod +x /opt/program/Docker/download.sh && \
         /opt/program/Docker/download.sh && \
         python /opt/program/Docker/download.py && \
-        python -m nltk.downloader all;\
+        python -m nltk.downloader all && \
+        python /opt/program/Docker/download_g2w_models.py;
     fi
 
 
