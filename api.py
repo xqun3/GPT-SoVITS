@@ -151,6 +151,7 @@ import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sub_gpt_sovits_folder = os.path.join(current_dir, 'GPT_SoVITS')
 sys.path.append(sub_gpt_sovits_folder)
+
 import signal
 import LangSegment
 from time import time as ttime
@@ -681,13 +682,11 @@ def get_tts_wav(ref_wav_path, prompt_text, prompt_language, text, text_language,
             audio_bytes = pack_audio(audio_bytes,(np.concatenate(audio_opt, 0) * 2147483647).astype(np.int32),hps.data.sampling_rate)
         else:
             audio_bytes = pack_audio(audio_bytes,(np.concatenate(audio_opt, 0) * 32768).astype(np.int16),hps.data.sampling_rate)
-    # logger.info("%.3f\t%.3f\t%.3f\t%.3f" % (t1 - t0, t2 - t1, t3 - t2, t4 - t3))
         if stream_mode == "normal":
             audio_bytes, audio_chunk = read_clean_buffer(audio_bytes)
             chunked_audio_bytes = pack_mp3(audio_chunk,hps.data.sampling_rate)
-            #print("here1===")
             #print(len(chunked_audio_bytes.getvalue()))
-            result = write_wav_to_s3(audio_chunk, output_s3uri)
+            result = write_wav_to_s3(chunked_audio_bytes, output_s3uri)
             yield json.dumps(result)
 
             # yield audio_chunk
@@ -912,7 +911,15 @@ async def ping():
 async def invocations(request: Request):
     json_post_raw = await request.json()
     print(f"invocations {json_post_raw=}")
-    opt=parse_obj_as(InferenceOpt,json_post_raw)
+    opt = parse_obj_as(InferenceOpt,json_post_raw)
+    if isinstance(opt.top_k, tuple):
+        opt.top_k = int(opt.top_k[0])
+    if isinstance(opt.top_p, tuple):
+        opt.top_p = float(opt.top_p[0])
+    if isinstance(opt.temperature, tuple):
+        opt.temperature = float(opt.temperature[0])
+    if isinstance(opt.speed, tuple):
+        opt.speed = float(opt.speed[0])
     print(f"invocations {opt=}")
     return handle(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text,  opt.text_language,opt.cut_punc, opt.top_k, opt.top_p, opt.temperature, opt.speed, opt.inp_refs, opt.output_s3uri)
     #return get_tts_wav(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text, opt.text_language, opt.output_s3uri)

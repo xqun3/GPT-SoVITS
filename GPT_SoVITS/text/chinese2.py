@@ -10,6 +10,7 @@ from text.symbols import punctuation
 from text.tone_sandhi import ToneSandhi
 from text.zh_normalization.text_normlization import TextNormalizer
 
+import config as global_config
 normalizer = lambda x: cn2an.transform(x, "an2cn")
 
 current_file_path = os.path.dirname(__file__)
@@ -20,6 +21,10 @@ pinyin_to_symbol_map = {
 
 import jieba_fast.posseg as psg
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+model_dir = os.path.join(current_dir, 'G2PWModel')
+print("model_dir: ", model_dir)
+# sys.path.append(sub_gpt_sovits_folder)
 # is_g2pw_str = os.environ.get("is_g2pw", "True")##默认开启
 # is_g2pw = False#True if is_g2pw_str.lower() == 'true' else False
 is_g2pw = True#True if is_g2pw_str.lower() == 'true' else False
@@ -27,7 +32,9 @@ if is_g2pw:
     print("当前使用g2pw进行拼音推理")
     from text.g2pw import G2PWPinyin, correct_pronunciation
     parent_directory = os.path.dirname(current_file_path)
-    g2pw = G2PWPinyin(model_dir="GPT_SoVITS/text/G2PWModel",model_source="GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large",v_to_u=False, neutral_tone_with_five=True)
+    g2pw = G2PWPinyin(model_dir=model_dir, model_source=global_config.bert_path, v_to_u=False, neutral_tone_with_five=True)
+    #g2pw = G2PWPinyin(model_dir="/opt/program/GPT_SoVITS/text/G2PWModel",model_source="/workspace/GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large",v_to_u=False, neutral_tone_with_five=True)
+    # g2pw = G2PWPinyin(model_dir="GPT_SoVITS/text/G2PWModel",model_source="GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large",v_to_u=False, neutral_tone_with_five=True)
 
 rep_map = {
     "：": ",",

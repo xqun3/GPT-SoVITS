@@ -13,6 +13,10 @@ import os
 import traceback
 import time
 
+account_id =boto3.client('sts').get_caller_identity().get('Account')
+my_session = boto3.session.Session()
+region = my_session.region_name
+# print("account_id: ", account_id)
 WORKING_DIR="/tmp"
 
 def get_bucket_and_key(s3uri):
@@ -29,7 +33,8 @@ def write_wav_to_s3(audio_bytes_values,output_s3uri=""):
     write wav to s3 bucket
     """
     s3_client = boto3.client('s3')
-    s3_bucket = os.environ.get("s3_bucket", "sagemaker-us-west-2-687912291502")
+    s3_bucket = os.environ.get("s3_bucket", f"sagemaker-{region}-{account_id}")
+    # print("Default S3 Bucket: ", s3_bucket)
     prediction ={}
     default_output_s3uri = f's3://{s3_bucket}/gpt_sovits_output/audio/'
     if output_s3uri is None or output_s3uri=="":
@@ -38,7 +43,7 @@ def write_wav_to_s3(audio_bytes_values,output_s3uri=""):
     bucket, key = get_bucket_and_key(output_s3uri)
     #key = f'{key}gpt_sovits_{int(time.time())}.mp3'
     key = f'{key}gpt_sovits_{int(time.time() * 1000)}.mp3'
-    #file_obj = io.BytesIO(audio_bytes_values)
+    # file_obj = io.BytesIO(audio_bytes_values)
     file_obj = audio_bytes_values
     file_obj.seek(0)
     s3_client.upload_fileobj(
@@ -58,7 +63,7 @@ class InferenceOpt(BaseModel):
     prompt_language:str = "zh",
     text:str = "my queue, my love ,my wife.",
     text_language :str = "zh"
-    output_s3uri:str = "s3://sagemaker-us-west-2-687912291502/gpt_sovits_output/wav/"
+    output_s3uri:str = ""
     cut_punc:str = "."
     top_k: int = 15,
     top_p: float = 1.0,
