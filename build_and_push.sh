@@ -1,4 +1,4 @@
-algorithm_name=gpt-sovits-inference-v2-ec2
+algorithm_name=gpt-sovits-inference-v2
 
 account=$(aws sts get-caller-identity --query Account --output text)
 
