@@ -1,16 +1,8 @@
-import uuid
-import json
-import urllib.request
 import urllib.parse
-import base64
 from pydantic import BaseModel, Field, parse_obj_as
 from fastapi import  Query
-from PIL import Image
-import io
-import sys
 import boto3
 import os
-import traceback
 import time
 
 account_id =boto3.client('sts').get_caller_identity().get('Account')
@@ -64,6 +56,8 @@ class InferenceOpt(BaseModel):
     text:str = "my queue, my love ,my wife.",
     text_language :str = "zh"
     output_s3uri:str = ""
+    gpt_weights_path:str = ""
+    sovits_weights_path:str = ""
     cut_punc:str = "."
     top_k: int = 15,
     top_p: float = 1.0,

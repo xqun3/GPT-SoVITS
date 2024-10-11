@@ -256,6 +256,7 @@ class Gpt:
 
 global hz
 hz = 50
+
 def get_gpt_weights(gpt_path):
     dict_s1 = torch.load(gpt_path, map_location="cpu")
     config = dict_s1["config"]
@@ -727,7 +728,7 @@ def handle_change(path, text, language):
     return JSONResponse({"code": 0, "message": "Success"}, status_code=200)
 
 
-def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs, output_s3uri):
+def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cut_punc, top_k, top_p, temperature, speed, inp_refs, output_s3uri, gpt_weights_path, sovits_weights_path):
     if (
             refer_wav_path == "" or refer_wav_path is None
             or prompt_text == "" or prompt_text is None
@@ -745,6 +746,20 @@ def handle(refer_wav_path, prompt_text, prompt_language, text, text_language, cu
         text = cut_text(text,default_cut_punc)
     else:
         text = cut_text(text,cut_punc)
+
+    # download model from s3
+    if gpt_weights_path != "" and sovits_weights_path != "":
+        try:
+            gpt_weights_file_name = os.path.basename(gpt_weights_path)
+            gpt_path = "/tmp/"+gpt_weights_file_name
+            download_from_s3(gpt_weights_path, gpt_path)
+            sovits_weights_file_name = os.path.basename(sovits_weights_path)
+            sovits_path = "/tmp/"+sovits_weights_file_name
+            download_from_s3(sovits_weights_path, sovits_path)
+            change_gpt_sovits_weights(gpt_path=gpt_path, sovits_path=sovits_path)
+            logger.info(f"new models is_ready: gpt_path{gpt_path}, sovits_path{sovits_path}")
+        except Exception as e:
+            return JSONResponse({"code": 400, "message": "Failded to download model weights,please check the gpt_weights_path 和 sovits_weights_path"}, status_code=400)
 
     # return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refs), media_type="audio/"+media_type)
     return StreamingResponse(get_tts_wav(refer_wav_path, prompt_text, prompt_language, text, text_language, top_k, top_p, temperature, speed, inp_refs, output_s3uri), media_type="application/json")
@@ -921,8 +936,10 @@ async def invocations(request: Request):
     if isinstance(opt.speed, tuple):
         opt.speed = float(opt.speed[0])
     print(f"invocations {opt=}")
-    return handle(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text,  opt.text_language,opt.cut_punc, opt.top_k, opt.top_p, opt.temperature, opt.speed, opt.inp_refs, opt.output_s3uri)
+    return handle(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text,  opt.text_language,opt.cut_punc, opt.top_k, opt.top_p, opt.temperature, opt.speed, opt.inp_refs, opt.output_s3uri,opt.gpt_weights_path, opt.sovits_weights_path)
     #return get_tts_wav(opt.refer_wav_path, opt.prompt_text, opt.prompt_language, opt.text, opt.text_language, opt.output_s3uri)
+    
+    
 @app.post("/set_model")
 async def set_model(request: Request):
     json_post_raw = await request.json()

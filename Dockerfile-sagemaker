@@ -27,7 +27,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy to leverage Docker cache
-COPY ./GPT-SoVITS /opt/program/
+# COPY ./GPT-SoVITS /opt/program/
+COPY serve requirements.txt /opt/program/
+COPY ./Docker /opt/program/Docker
 WORKDIR /opt/program
 
 RUN pip install --no-cache-dir -r /opt/program/requirements.txt
@@ -38,6 +40,8 @@ ARG IMAGE_TYPE=full
 # Conditional logic based on the IMAGE_TYPE argument
 # Always copy the Docker directory, but only use it if IMAGE_TYPE is not "elite"
 COPY ./Docker /workspace/Docker
+
+
 # elite 类型的镜像里面不包含额外的模型
 RUN if [ "$IMAGE_TYPE" != "elite" ]; then \
         chmod +x /opt/program/Docker/download.sh && \
@@ -47,9 +51,13 @@ RUN if [ "$IMAGE_TYPE" != "elite" ]; then \
         python /opt/program/Docker/download_g2w_models.py; \
     fi
 
+# 定义环境变量
+#ENV PATH="/workspace:${PATH}"
 
-#####start api.py ######
-RUN chmod 755 /opt/program
 RUN chmod 755 /opt/program/serve
+
+# 运行serve
+ENTRYPOINT []
+CMD ["serve"]
 
 

@@ -1,7 +1,7 @@
 # Deploy GPT-SoVits on SageMaker Endpoint
 
 ## 部署
-1. 启动并打开一台 SageMaker notebook.
+1. 启动并打开一台 SageMaker notebook（注意 notebook 的 IAM role 需要有访问 ECR 的权限，如果需要使用 [ssh-helper](https://github.com/aws-samples/sagemaker-ssh-helper) 调试部署代码，也需要添加对应权限）.
 2. 打开一个 notebook Terminal 克隆项目到Tnotebook 环境
 ```
 cd SageMaker && git clone https://github.com/xqun3/GPT-SoVITS.git

@@ -1,41 +1,45 @@
-#!/usr/bin/env python 
-# -*- coding: utf-8 -*-
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#!/bin/bash
 
-# Permission is hereby granted, free of charge, to any person obtaining a copy of
-# this software and associated documentation files (the "Software"), to deal in
-# the Software without restriction, including without limitation the rights to
-# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-# the Software, and to permit persons to whom the Software is furnished to do so.
+set -e  # Exit immediately if a command exits with a non-zero status.
 
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-"""uvicorn main module"""
-import time
-import os
-import subprocess
-import signal
-import uvicorn
-import sys
+# Set the directory to check
+base_dir="/opt/ml/model/"
+export SAGEMAKER_BIND_TO_PORT=${SAGEMAKER_BIND_TO_PORT:-8080}
 
-#    ###for debug only#######
-sys.path.append(os.path.join(os.path.dirname(__file__), "lib"))
-import sagemaker_ssh_helper
-sagemaker_ssh_helper.setup_and_start_ssh()
+# Check if the directory exists
+if [ ! -d "$base_dir" ]; then
+    echo "Error: $base_dir directory does not exist"
+    exit 1
+fi
 
-def _add_sigterm_handler(mms_process):
-    def _terminate(signo, frame):  # pylint: disable=unused-argument
-        try:
-            os.system('ps aux')
-            os.kill(mms_process.pid, signal.SIGTERM)
-        except OSError:
-            pass
+# Find the first subdirectory in the base directory
+model_dir=$(find "$base_dir" -mindepth 1 -maxdepth 1 -type d -print -quit)
 
-    signal.signal(signal.SIGTERM, _terminate)
-cmd = ["python","/opt/program/api.py","-dr","Brigida.wav","-dt","hi hello","-dl","zh","-a","0.0.0.0","-p","8080"]
-process = subprocess.Popen(cmd)
-process.wait()
+# Check if a subdirectory was found
+if [ -z "$model_dir" ]; then
+    echo "No subdirectory found"
+    exit 0
+else
+    # Set the model_path
+    model_path="$model_dir"
+    
+    echo "Found model directory" $model_dir
+
+    if [ -f "$model_dir/api.py" ]; then
+        # If api.py file exists, proceed with setup
+        cp -r $base_dir/GPT-SoVITS/* /opt/program/ || { log "Failed to copy GPT-SoVITS data"; exit 1; }
+        echo "Copied ${model_dir} files to workspace"
+
+        echo "Contents of /opt/program/:"
+        ls -R /opt/program/
+
+        python3 ssh_helper_start.py || { echo "SSH helper start failed";}
+        
+        # Start api
+        python /opt/program/api.py -dr Brigida.wav -dt "hi hello" -dl "zh" -a "0.0.0.0" -p "8080"
+    else
+        echo "Error: api.py not found in $model_dir"
+        exit 1
+    fi
+
+fi
