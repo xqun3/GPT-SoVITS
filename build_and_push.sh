@@ -16,17 +16,12 @@ echo "create repository:" "${algorithm_name}"
 aws ecr create-repository --repository-name "${algorithm_name}" > /dev/null
 fi
 
-#load public ECR image
-#aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-
 # Log into Docker
 pwd=$(aws ecr get-login-password --region ${region})
 docker login --username AWS -p ${pwd} ${account}.dkr.ecr.${region}.amazonaws.com
 
 
-# git clone -b streams https://github.com/qingyuan18/GPT-SoVITS.git
-# git clone https://github.com/xqun3/GPT-SoVITS.git 
 docker build -t ${algorithm_name}  ./ -f ./Dockerfile-sagemaker
 docker tag ${algorithm_name} ${fullname}
 docker push ${fullname}
-# rm -rf ./GPT-SoVITS
+
