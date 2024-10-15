@@ -842,6 +842,9 @@ default_cut_punc = args.cut_punc
 # 应用参数配置
 default_refer = DefaultRefer(args.default_refer_path, args.default_refer_text, args.default_refer_language)
 
+from download_g2w_models import download_and_decompress
+download_and_decompress()
+
 # 模型路径检查
 if sovits_path == "":
     sovits_path = g_config.pretrained_sovits_path
